@@ -1,7 +1,9 @@
-import React from 'react';
-import { FileText, Download, Lock, ExternalLink, Globe, Book, Scale, Users, Shield, Archive } from 'lucide-react';
+import React, { useState } from 'react';
+import { Download, Lock, ExternalLink, Globe, Book, Scale, Users, Shield, Archive, Search, X } from 'lucide-react';
 
 const Documents: React.FC = () => {
+    const [searchTerm, setSearchTerm] = useState('');
+
     const categories = [
         {
             title: "Normativa Fundamental",
@@ -50,73 +52,103 @@ const Documents: React.FC = () => {
         { title: "SUIT - Trámites del Estado", url: "https://www.suit.gov.co/", desc: "Sistema Único de Información de Trámites" }
     ];
 
+    const filteredCategories = categories.map(cat => ({
+        ...cat,
+        docs: cat.docs.filter(doc =>
+            doc.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            doc.code.toLowerCase().includes(searchTerm.toLowerCase())
+        )
+    })).filter(cat => cat.docs.length > 0);
+
     return (
         <div className="space-y-10 animate-in fade-in duration-500">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
-                    <h2 className="text-3xl font-black text-slate-800">Biblioteca Normativa</h2>
-                    <p className="text-slate-500 mt-2 text-lg">Repositorio digital para la excelencia pública.</p>
+                    <h2 className="text-3xl font-black text-slate-800 dark:text-white">Biblioteca Normativa</h2>
+                    <p className="text-slate-500 dark:text-slate-400 mt-2 text-lg">Repositorio digital para la excelencia pública.</p>
                 </div>
-                <div className="bg-blue-50 px-4 py-2 rounded-xl border border-blue-100 flex items-center gap-2">
-                    <Book className="w-5 h-5 text-blue-600" />
-                    <span className="font-bold text-blue-900 text-sm">38 Documentos Disponibles</span>
+
+                {/* Search Bar */}
+                <div className="relative w-full md:w-96">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <Search className="h-5 w-5 text-slate-400" />
+                    </div>
+                    <input
+                        type="text"
+                        className="block w-full pl-10 pr-3 py-3 border border-slate-200 dark:border-slate-700 rounded-xl leading-5 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm transition-all"
+                        placeholder="Buscar norma, ley o código..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                    {searchTerm && (
+                        <button
+                            onClick={() => setSearchTerm('')}
+                            className="absolute inset-y-0 right-0 pr-3 flex items-center cursor-pointer text-slate-400 hover:text-slate-600"
+                        >
+                            <X className="h-4 w-4" />
+                        </button>
+                    )}
                 </div>
             </div>
 
-            {/* External Links Section */}
-            <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest ">Portales Oficiales</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {links.map((link, i) => (
-                    <a
-                        key={i}
-                        href={link.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="bg-white p-5 rounded-2xl border border-slate-200 hover:border-blue-400 hover:shadow-lg transition-all group flex flex-col h-full"
-                    >
-                        <div className="flex justify-between items-start mb-3">
-                            <div className="bg-slate-50 p-2 rounded-lg group-hover:bg-blue-50 transition-colors">
-                                <Globe className="w-6 h-6 text-slate-600 group-hover:text-blue-600" />
-                            </div>
-                            <ExternalLink className="w-4 h-4 text-slate-300 group-hover:text-blue-400" />
-                        </div>
-                        <h4 className="font-bold text-slate-800 mb-1 leading-tight">{link.title}</h4>
-                        <p className="text-xs text-slate-500 mt-auto">{link.desc}</p>
-                    </a>
-                ))}
-            </div>
+            {/* External Links Section - Hide on search to reduce noise if user wants specific doc */}
+            {!searchTerm && (
+                <>
+                    <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest ">Portales Oficiales</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        {links.map((link, i) => (
+                            <a
+                                key={i}
+                                href={link.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 hover:border-blue-400 hover:shadow-lg transition-all group flex flex-col h-full"
+                            >
+                                <div className="flex justify-between items-start mb-3">
+                                    <div className="bg-slate-50 dark:bg-slate-700 p-2 rounded-lg group-hover:bg-blue-50 dark:group-hover:bg-blue-900/30 transition-colors">
+                                        <Globe className="w-6 h-6 text-slate-600 dark:text-slate-300 group-hover:text-blue-600 dark:group-hover:text-blue-400" />
+                                    </div>
+                                    <ExternalLink className="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-blue-400" />
+                                </div>
+                                <h4 className="font-bold text-slate-800 dark:text-white mb-1 leading-tight">{link.title}</h4>
+                                <p className="text-xs text-slate-500 dark:text-slate-400 mt-auto">{link.desc}</p>
+                            </a>
+                        ))}
+                    </div>
+                </>
+            )}
 
             {/* Categories Grid */}
             <div className="space-y-8">
-                {categories.map((cat, i) => (
+                {filteredCategories.length > 0 ? filteredCategories.map((cat, i) => (
                     <div key={i} className="space-y-4">
-                        <div className="flex items-center gap-3 border-b border-slate-200 pb-2">
-                            <div className="p-2 bg-white rounded-lg border border-slate-100 shadow-sm">
+                        <div className="flex items-center gap-3 border-b border-slate-200 dark:border-slate-700 pb-2">
+                            <div className="p-2 bg-white dark:bg-slate-800 rounded-lg border border-slate-100 dark:border-slate-700 shadow-sm">
                                 {cat.icon}
                             </div>
-                            <h3 className="text-xl font-bold text-slate-800">{cat.title}</h3>
+                            <h3 className="text-xl font-bold text-slate-800 dark:text-white">{cat.title}</h3>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
                             {cat.docs.map((doc, j) => (
-                                <div key={j} className={`p-4 rounded-xl border flex items-center justify-between transition-all duration-300 ${doc.locked ? 'bg-slate-50 border-slate-100' : 'bg-white border-slate-200 hover:border-blue-300 hover:shadow-md'}`}>
+                                <div key={j} className={`p-4 rounded-xl border flex items-center justify-between transition-all duration-300 ${doc.locked ? 'bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-800' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-blue-300 hover:shadow-md'}`}>
                                     <div className="flex items-center gap-4">
-                                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 font-black text-xs border ${doc.locked ? 'bg-slate-100 text-slate-400 border-slate-200' : 'bg-red-50 text-red-600 border-red-100'}`}>
+                                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 font-black text-xs border ${doc.locked ? 'bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500 border-slate-200 dark:border-slate-600' : 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border-red-100 dark:border-red-900/30'}`}>
                                             {doc.locked ? <Lock className="w-5 h-5" /> : 'PDF'}
                                         </div>
                                         <div>
-                                            <h4 className={`font-bold text-sm ${doc.locked ? 'text-slate-500' : 'text-slate-800'}`}>{doc.title}</h4>
-                                            <p className="text-[10px] text-slate-400 font-bold uppercase mt-1 flex items-center gap-2">
+                                            <h4 className={`font-bold text-sm ${doc.locked ? 'text-slate-500 dark:text-slate-500' : 'text-slate-800 dark:text-white'}`}>{doc.title}</h4>
+                                            <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase mt-1 flex items-center gap-2">
                                                 <span>{doc.size}</span>
                                                 <span className="w-1 h-1 rounded-full bg-slate-300"></span>
-                                                <span>{doc.code}</span>
+                                                <span className="bg-slate-100 dark:bg-slate-700 px-1 rounded">{doc.code}</span>
                                             </p>
                                         </div>
                                     </div>
 
                                     <button
                                         disabled={doc.locked}
-                                        className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${doc.locked ? 'text-slate-300' : 'bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white'}`}
+                                        className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${doc.locked ? 'text-slate-300 dark:text-slate-600' : 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-600 hover:text-white'}`}
                                     >
                                         {doc.locked ? <Lock className="w-4 h-4" /> : <Download className="w-5 h-5" />}
                                     </button>
@@ -124,20 +156,26 @@ const Documents: React.FC = () => {
                             ))}
                         </div>
                     </div>
-                ))}
+                )) : (
+                    <div className="text-center py-12">
+                        <p className="text-slate-400">No se encontraron documentos con ese término.</p>
+                    </div>
+                )}
             </div>
 
-            <div className="bg-gradient-to-r from-blue-600 to-indigo-700 p-8 rounded-[2rem] text-white shadow-xl mt-8 flex flex-col md:flex-row items-center justify-between gap-6">
-                <div>
-                    <h4 className="font-bold text-2xl mb-2">¿Necesitas material impreso?</h4>
-                    <p className="text-blue-100 text-sm max-w-lg leading-relaxed">
-                        Los miembros del Grupo de Estudio pueden solicitar el kit físico que incluye la Constitución Política comentada y el manual de Misión Mérito 2026.
-                    </p>
+            {!searchTerm && (
+                <div className="bg-gradient-to-r from-blue-600 to-indigo-700 p-8 rounded-[2rem] text-white shadow-xl mt-8 flex flex-col md:flex-row items-center justify-between gap-6">
+                    <div>
+                        <h4 className="font-bold text-2xl mb-2">¿Necesitas material impreso?</h4>
+                        <p className="text-blue-100 text-sm max-w-lg leading-relaxed">
+                            Los miembros del Grupo de Estudio pueden solicitar el kit físico que incluye la Constitución Política comentada y el manual de Misión Mérito 2026.
+                        </p>
+                    </div>
+                    <button className="bg-white text-blue-900 px-6 py-3 rounded-xl font-black text-xs uppercase tracking-wider hover:bg-blue-50 transition-colors shadow-lg">
+                        Solicitar Material
+                    </button>
                 </div>
-                <button className="bg-white text-blue-900 px-6 py-3 rounded-xl font-black text-xs uppercase tracking-wider hover:bg-blue-50 transition-colors shadow-lg">
-                    Solicitar Material
-                </button>
-            </div>
+            )}
         </div>
     );
 };

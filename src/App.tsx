@@ -8,6 +8,8 @@ import SimoGuide from './pages/SimoGuide';
 import Simulations from './pages/Simulations';
 import Documents from './pages/Documents';
 
+import Flashcards from './pages/Flashcards';
+
 const App: React.FC = () => {
   return (
     <HashRouter>
@@ -19,6 +21,7 @@ const App: React.FC = () => {
           <Route path="structure" element={<Structure />} />
           <Route path="simo" element={<SimoGuide />} />
           <Route path="simulations" element={<Simulations />} />
+          <Route path="flashcards" element={<Flashcards />} />
           <Route path="documents" element={<Documents />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
