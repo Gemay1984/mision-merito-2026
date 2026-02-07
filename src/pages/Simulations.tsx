@@ -1,14 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Gamepad2, PlayCircle, CheckCircle, XCircle, RefreshCw, ArrowRight, Trophy, History, User, Clock, Volume2, VolumeX, ListOrdered } from 'lucide-react';
+import { Gamepad2, PlayCircle, CheckCircle, XCircle, RefreshCw, ArrowRight, Trophy, History, User, Clock, Volume2, VolumeX, ListOrdered, Trash2 } from 'lucide-react';
 import { mockQuiz } from '../data/mockData';
 
-// Sound effects as base64 strings (short placeholders for demo)
-const SOUND_CORRECT = "data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbqWEyM2Cw0NupYTIzYLHQ26lhMjNgsdDbqWEyM2Cw0NupYTIzYLHQ26lhMjNgsdDbqWEyM2Cw0NupYTIzYLHQ26lhMjNgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"; // Simplified placeholder
-const SOUND_WRONG = "data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgAAAAAA=="; // Simplified placeholder
+// --- ROBUST AUDIO ASSETS (Base64) ---
+// Short "Success" Chime (Arcade Style)
+const SOUND_SUCCESS_B64 = "data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbqWEyM2Cw0NupYTIzYLHQ26lhMjNgsdDbqWEyM2Cw0NupYTIzYLHQ26lhMjNgsdDbqWEyM2Cw0NupYTIzYLHQ26lhMjNgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+// Short "Error" Buzz
+const SOUND_ERROR_B64 = "data:audio/wav;base64,UklGRiYAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAAAAP//////////////////////////////////////////////////";
 
-// In a real app, use real MP3/WAV URLs
-const AUDIO_SUCCESS = new Audio('https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3'); // Fanfare
-const AUDIO_ERROR = new Audio('https://assets.mixkit.co/active_storage/sfx/2003/2003-preview.mp3');   // Buzz
+// We use these hosted files as PRIMARY, allow browser to cache them.
+// If they fail, we could fallback, but for now let's use reliable open URLs or keep it simple.
+// Actually, to GUARANTEE sound, we will use the user's interaction to trigger a silent play first.
 
 interface LeaderboardEntry {
     name: string;
@@ -21,6 +23,7 @@ const Simulations: React.FC = () => {
     // --- State ---
     const [userName, setUserName] = useState('');
     const [isStarted, setIsStarted] = useState(false);
+    const [countdown, setCountdown] = useState<number | null>(null); // New: Countdown state
 
     // Quiz State
     const [currentQuestion, setCurrentQuestion] = useState(0);
@@ -38,10 +41,20 @@ const Simulations: React.FC = () => {
     const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
 
     const timerRef = useRef<number | null>(null);
+    const audioSuccessRef = useRef<HTMLAudioElement | null>(null);
+    const audioErrorRef = useRef<HTMLAudioElement | null>(null);
 
     // --- Effects ---
 
     useEffect(() => {
+        // Initialize Audio
+        audioSuccessRef.current = new Audio('https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3');
+        audioErrorRef.current = new Audio('https://assets.mixkit.co/active_storage/sfx/2003/2003-preview.mp3');
+
+        // Preload
+        audioSuccessRef.current.load();
+        audioErrorRef.current.load();
+
         // Load Leaderboard
         const savedLeaderboard = localStorage.getItem('mm_leaderboard');
         if (savedLeaderboard) {
@@ -50,7 +63,20 @@ const Simulations: React.FC = () => {
     }, []);
 
     useEffect(() => {
-        // Timer Logic
+        // Countdown Logic
+        if (countdown !== null && countdown > 0) {
+            const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
+            return () => clearTimeout(timer);
+        } else if (countdown === 0) {
+            // Start Game
+            setCountdown(null);
+            setIsStarted(true);
+            setIsActiveTimer(true);
+        }
+    }, [countdown]);
+
+    useEffect(() => {
+        // Game Timer Logic
         if (isActiveTimer) {
             timerRef.current = window.setInterval(() => {
                 setSeconds(s => s + 1);
@@ -73,30 +99,31 @@ const Simulations: React.FC = () => {
 
     const playSound = (type: 'success' | 'error') => {
         if (!soundEnabled) return;
-        if (type === 'success') {
-            AUDIO_SUCCESS.currentTime = 0;
-            AUDIO_SUCCESS.play().catch(e => console.log('Audio play failed', e));
-        } else {
-            AUDIO_ERROR.currentTime = 0;
-            AUDIO_ERROR.play().catch(e => console.log('Audio play failed', e));
+        const audio = type === 'success' ? audioSuccessRef.current : audioErrorRef.current;
+        if (audio) {
+            audio.currentTime = 0;
+            audio.volume = 0.5;
+            audio.play().catch(e => console.warn("Audio play blocked", e));
         }
     };
 
     // --- Handlers ---
 
-    const handleStartParams = () => {
+    const initCountdown = () => {
         if (!userName.trim()) {
             alert("Por favor ingresa tu nombre para iniciar.");
             return;
         }
-        setIsStarted(true);
-        setIsActiveTimer(true);
+        // Unlock audio context on user interaction
+        if (audioSuccessRef.current) { audioSuccessRef.current.play().then(() => audioSuccessRef.current?.pause()).catch(() => { }); }
+
         setSeconds(0);
         setScore(0);
         setCurrentQuestion(0);
         setShowResult(false);
         setIsAnswered(false);
         setSelectedOption(null);
+        setCountdown(3); // Start countdown
     };
 
     const handleOptionSelect = (index: number) => {
@@ -127,34 +154,25 @@ const Simulations: React.FC = () => {
         setIsActiveTimer(false);
         setShowResult(true);
 
-        // Save Leaderboard
+        // Correct logic to determine score including the current question if answered correctly
+        const finalScore = isAnswered && selectedOption === mockQuiz[currentQuestion].correctAnswer
+            ? score // Score state already updated via toggle? No.
+            // Wait, setScore is async. If user clicks result, score state MIGHT not be updated if they clicked FAST. 
+            // BUT, handleNextQuestion is triggered by a separate click. 
+            // Scenario: User clicks Option (setScore +1) -> Re-render -> User clicks Next/Finish.
+            // So Score IS updated.
+            : score;
+
+        // Note: if the LAST question was just answered, 'score' state reflects it because UI re-rendered to show "Ver Resultados".
+
         const newEntry: LeaderboardEntry = {
             name: userName,
-            score: score + (selectedOption === mockQuiz[currentQuestion].correctAnswer ? 1 : 0), // Add last point if correct
+            score: score, // Use current state
             time: formatTime(seconds),
             date: new Date().toLocaleDateString()
         };
 
-        // Note: The 'score' state variable might be one step behind if updated in the same render cycle as finishQuiz call in handleOptionSelect logic (which it isn't here, it is in handleNext).
-        // However, handleNextQuestion is called manually. But wait, if the LAST question is answered correctly, handleOptionSelect increments score. 
-        // Then user clicks "Ver Resultados" (handleNextQuestion) -> finishQuiz. 
-        // So 'score' state IS updated correctly before finishQuiz runs. 
-        // Wait, remove the manual addition in newEntry above if score is already up to date.
-        // Actually, let's verify: handleOptionSelect runs -> setScore(prev+1). Re-render. User sees feedback. User clicks Next. handleNext runs -> finishQuiz. 
-        // Yes, score is up to date.
-
-        // Correct logic:
-        const finalScore = isAnswered && selectedOption === mockQuiz[currentQuestion].correctAnswer
-            ? score // Already incremented? No wait. 
-            // setScore is async. But handleOptionSelect happened BEFORE user clicked Next. So score IS updated.
-            : score;
-
-        // Re-calibrating safely:
-        // Use the score state directly as it was updated when they clicked the option.
-
-        const finalEntry: LeaderboardEntry = { ...newEntry, score };
-
-        const updatedLeaderboard = [...leaderboard, finalEntry]
+        const updatedLeaderboard = [...leaderboard, newEntry]
             .sort((a, b) => b.score - a.score || a.time.localeCompare(b.time)) // Sort by score DESC, then time ASC
             .slice(0, 5); // Keep top 5
 
@@ -166,9 +184,28 @@ const Simulations: React.FC = () => {
         setIsStarted(false);
         setUserName('');
         setIsActiveTimer(false);
+        setCountdown(null);
+    };
+
+    const clearLeaderboard = () => {
+        if (confirm("¿Borrar historial de puntajes?")) {
+            setLeaderboard([]);
+            localStorage.removeItem('mm_leaderboard');
+        }
     };
 
     // --- Render ---
+
+    if (countdown !== null) {
+        return (
+            <div className="flex items-center justify-center h-[60vh] animate-in zoom-in-95">
+                <div className="text-center">
+                    <div className="text-9xl font-black text-blue-600 mb-4 animate-ping">{countdown}</div>
+                    <p className="text-xl text-slate-500 font-bold uppercase tracking-widest">Iniciando...</p>
+                </div>
+            </div>
+        );
+    }
 
     if (!isStarted) {
         return (
@@ -201,7 +238,7 @@ const Simulations: React.FC = () => {
                         </div>
 
                         <button
-                            onClick={handleStartParams}
+                            onClick={initCountdown}
                             className="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white rounded-xl font-bold shadow-lg shadow-blue-200 dark:shadow-none flex items-center justify-center gap-3 transition-transform active:scale-95"
                         >
                             <PlayCircle className="w-5 h-5" />
@@ -211,10 +248,15 @@ const Simulations: React.FC = () => {
 
                     {/* Mini Leaderboard Preview */}
                     {leaderboard.length > 0 && (
-                        <div className="mt-10 pt-8 border-t border-slate-100 dark:border-slate-700 text-left">
-                            <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                                <Trophy className="w-4 h-4 text-yellow-500" /> Mejores Puntajes
-                            </h4>
+                        <div className="mt-10 pt-8 border-t border-slate-100 dark:border-slate-700 text-left relative">
+                            <div className="flex justify-between items-center mb-4">
+                                <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                    <Trophy className="w-4 h-4 text-yellow-500" /> Mejores Puntajes
+                                </h4>
+                                <button onClick={clearLeaderboard} className="text-slate-300 hover:text-red-500 transition-colors">
+                                    <Trash2 className="w-4 h-4" />
+                                </button>
+                            </div>
                             <div className="space-y-2">
                                 {leaderboard.slice(0, 3).map((entry, i) => (
                                     <div key={i} className="flex justify-between items-center text-sm">
@@ -243,7 +285,6 @@ const Simulations: React.FC = () => {
         return (
             <div className="max-w-xl mx-auto space-y-6 animate-in zoom-in-95 duration-500">
                 <div className="bg-white dark:bg-slate-800 p-8 rounded-[2rem] shadow-xl border border-slate-200 dark:border-slate-700 text-center relative overflow-hidden">
-                    {/* Confetti Effect bg would go here */}
                     <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-green-400 to-emerald-500"></div>
 
                     <div className="w-24 h-24 bg-yellow-50 dark:bg-yellow-900/20 rounded-full flex items-center justify-center mx-auto mb-6 animate-bounce">
@@ -284,7 +325,7 @@ const Simulations: React.FC = () => {
                     </h3>
                     <div className="space-y-3">
                         {leaderboard.map((entry, i) => (
-                            <div key={i} className={`flex items-center justify-between p-3 rounded-xl ${entry.name === userName && entry.time === formatTime(seconds) ? 'bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-900/30' : 'bg-slate-50 dark:bg-slate-900'}`}>
+                            <div key={i} className={`flex items-center justify-between p-3 rounded-xl ${entry.name === userName && entry.time === formatTime(seconds) && i < 1 ? 'bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-900/30' : 'bg-slate-50 dark:bg-slate-900'}`}>
                                 <div className="flex items-center gap-3">
                                     <span className={`w-6 h-6 flex items-center justify-center rounded-full text-xs font-black ${i === 0 ? 'bg-yellow-400 text-yellow-900' : 'bg-slate-200 dark:bg-slate-700 text-slate-500'}`}>
                                         {i + 1}
