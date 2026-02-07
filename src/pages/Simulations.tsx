@@ -1,297 +1,121 @@
-import React, { useState, useEffect } from 'react';
-import { Gamepad2, PlayCircle, CheckCircle, XCircle, RefreshCw, ArrowRight, Trophy, History } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Gamepad2, PlayCircle, CheckCircle, XCircle, RefreshCw, ArrowRight, Trophy, History, User, Clock, Volume2, VolumeX, ListOrdered } from 'lucide-react';
+import { mockQuiz } from '../data/mockData';
 
-interface Question {
-    id: number;
-    text: string;
-    options: string[];
-    correctAnswer: number;
-    explanation: string;
-    category: string;
+// Sound effects as base64 strings (short placeholders for demo)
+const SOUND_CORRECT = "data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbqWEyM2Cw0NupYTIzYLHQ26lhMjNgsdDbqWEyM2Cw0NupYTIzYLHQ26lhMjNgsdDbqWEyM2Cw0NupYTIzYLHQ26lhMjNgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"; // Simplified placeholder
+const SOUND_WRONG = "data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgAAAAAA=="; // Simplified placeholder
+
+// In a real app, use real MP3/WAV URLs
+const AUDIO_SUCCESS = new Audio('https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3'); // Fanfare
+const AUDIO_ERROR = new Audio('https://assets.mixkit.co/active_storage/sfx/2003/2003-preview.mp3');   // Buzz
+
+interface LeaderboardEntry {
+    name: string;
+    score: number;
+    time: string;
+    date: string;
 }
 
-const mockQuiz: Question[] = [
-    {
-        id: 1,
-        text: "Un ciudadano solicita información sobre un proceso de contratación. Según la Ley 1712 de 2014, ¿cuál es la respuesta correcta?",
-        options: [
-            "Negar la información si está en etapa de borrador.",
-            "Entregar la información bajo el principio de máxima publicidad.",
-            "Solicitar al ciudadano que espere a la publicación en SECOP."
-        ],
-        correctAnswer: 1,
-        explanation: "La Ley 1712 de 2014 establece que toda información en posesión del Estado se presume pública.",
-        category: "Transparencia"
-    },
-    {
-        id: 2,
-        text: "En el modelo MIPG, ¿cuál es la dimensión que articula a todas las demás?",
-        options: [
-            "Gestión con Valores para Resultados.",
-            "Información y Comunicación.",
-            "Talento Humano."
-        ],
-        correctAnswer: 2,
-        explanation: "Talento Humano es el corazón del modelo MIPG (Dimensión 1).",
-        category: "MIPG"
-    },
-    {
-        id: 3,
-        text: "¿Cuál es el término general para responder un derecho de petición de documentos?",
-        options: [
-            "10 días hábiles.",
-            "15 días hábiles.",
-            "30 días hábiles."
-        ],
-        correctAnswer: 0,
-        explanation: "Ley 1755 de 2015: Peticiones de documentos deben resolverse en 10 días.",
-        category: "Atención al Ciudadano"
-    },
-    {
-        id: 4,
-        text: "¿Qué instrumento archivístico es indispensable para realizar transferencias documentales?",
-        options: [
-            "El Cuadro de Clasificación Documental.",
-            "La Tabla de Retención Documental (TRD).",
-            "El Inventario Único Documental."
-        ],
-        correctAnswer: 1,
-        explanation: "Las TRD determinan los tiempos de retención y disposición final de los documentos.",
-        category: "Gestión Documental"
-    },
-    {
-        id: 5,
-        text: "Según el Código de Integridad, ¿qué valor se asocia a 'Actúo con imparcialidad garantizando los derechos de las personas'?",
-        options: [
-            "Justicia.",
-            "Respeto.",
-            "Honestidad."
-        ],
-        correctAnswer: 0,
-        explanation: "El valor de Justicia implica actuar con imparcialidad y equidad.",
-        category: "Integridad"
-    },
-    // ... adding more questions to reach 20 ...
-    {
-        id: 6,
-        text: "¿Quién es el responsable de implementar el Sistema de Control Interno en una entidad?",
-        options: [
-            "El Jefe de Control Interno.",
-            "El Representante Legal.",
-            "Todos los servidores públicos."
-        ],
-        correctAnswer: 1,
-        explanation: "La responsabilidad principal recae en el Representante Legal, aunque todos participan.",
-        category: "MECI"
-    },
-    {
-        id: 7,
-        text: "¿Qué tipo de nombramiento se utiliza para proveer un empleo de carrera administrativa mientras se surte el concurso?",
-        options: [
-            "Nombramiento Ordinario.",
-            "Nombramiento en Provisionalidad.",
-            "Nombramiento de Libre Nombramiento y Remoción."
-        ],
-        correctAnswer: 1,
-        explanation: "La provisionalidad es temporal mientras se provee el cargo por mérito (Ley 909 de 2004).",
-        category: "Empleo Público"
-    },
-    {
-        id: 8,
-        text: "En una entidad pública, ¿quién aprueba el Plan Anual de Adquisiciones?",
-        options: [
-            "El Comité de Contratación.",
-            "El Ordenador del Gasto.",
-            "El Representante Legal."
-        ],
-        correctAnswer: 0,
-        explanation: "Generalmente lo aprueba el Comité de Contratación o quien haga sus veces, liderado por el ordenador del gasto.",
-        category: "Contratación"
-    },
-    {
-        id: 9,
-        text: "¿Cuál es la vigencia mínima de una Tabla de Retención Documental antes de su actualización?",
-        options: [
-            "No tiene vigencia fija, se actualiza según cambios orgánicos.",
-            "5 años.",
-            "10 años."
-        ],
-        correctAnswer: 0,
-        explanation: "Las TRD se actualizan cuando hay cambios en la estructura o funciones, no por tiempo fijo.",
-        category: "Gestión Documental"
-    },
-    {
-        id: 10,
-        text: "¿Qué mecanismo protege el derecho fundamental a la salud cuando se ve vulnerado?",
-        options: [
-            "Acción de Grupo.",
-            "Acción de Tutela.",
-            "Habeas Corpus."
-        ],
-        correctAnswer: 1,
-        explanation: "La Acción de Tutela protege derechos fundamentales inmediatos (Art. 86 CP).",
-        category: "Constitución"
-    },
-    {
-        id: 11,
-        text: "¿Cuál es el fin esencial del Estado según el Artículo 2 de la Constitución?",
-        options: [
-            "Generar riqueza para las empresas.",
-            "Servir a la comunidad y promover la prosperidad general.",
-            "Mantener el orden público a toda costa."
-        ],
-        correctAnswer: 1,
-        explanation: "Servir a la comunidad es el fin primordial.",
-        category: "Constitución"
-    },
-    {
-        id: 12,
-        text: "¿Qué es el SECOP II?",
-        options: [
-            "Un sistema de nómina estatal.",
-            "Una plataforma transaccional para la contratación pública.",
-            "Un portal de empleo público."
-        ],
-        correctAnswer: 1,
-        explanation: "SECOP II permite realizar el proceso de contratación en línea (transaccional).",
-        category: "Contratación"
-    },
-    {
-        id: 13,
-        text: "En gestión documental, ¿qué es el 'Ciclo Vital del Documento'?",
-        options: [
-            "Su periodo de vigencia legal.",
-            "Las etapas de Archivo de Gestión, Central e Histórico.",
-            "El tiempo que dura el papel sin deteriorarse."
-        ],
-        correctAnswer: 1,
-        explanation: "El ciclo vital comprende la producción, trámite, y las fases de archivo.",
-        category: "Gestión Documental"
-    },
-    {
-        id: 14,
-        text: "¿Cuál es la conducta asociada a la competencia 'Orientación a Resultados'?",
-        options: [
-            "Cumplir el horario estrictamente.",
-            "Realizar las funciones asignadas con calidad y oportunidad.",
-            "Llevarse bien con los compañeros."
-        ],
-        correctAnswer: 1,
-        explanation: "Orientación a resultados implica logro de metas con estándares de calidad.",
-        category: "Comportamentales"
-    },
-    {
-        id: 15,
-        text: "¿Qué ley regula el Derecho de Petición en Colombia?",
-        options: [
-            "Ley 80 de 1993.",
-            "Ley 1755 de 2015.",
-            "Ley 1437 de 2011 (CPACA)."
-        ],
-        correctAnswer: 1,
-        explanation: "La Ley 1755 de 2015 regula el derecho fundamental de petición.",
-        category: "Atención al Ciudadano"
-    },
-    {
-        id: 16,
-        text: "Si un servidor público recibe una orden contraria a la Constitución, ¿qué debe hacer?",
-        options: [
-            "Cumplirla para evitar sanciones.",
-            "No cumplirla y reportar la irregularidad (Objeción de conciencia).",
-            "Delegarla a un subordinado."
-        ],
-        correctAnswer: 1,
-        explanation: "La Constitución es norma de normas (Art. 4). El servidor no debe cumplir órdenes inconstitucionales.",
-        category: "Constitución"
-    },
-    {
-        id: 17,
-        text: "¿Qué entidad vigila la conducta oficial de los servidores públicos?",
-        options: [
-            "Contraloría General.",
-            "Procuraduría General.",
-            "Fiscalía General."
-        ],
-        correctAnswer: 1,
-        explanation: "La Procuraduría ejerce el control disciplinario.",
-        category: "Estructura del Estado"
-    },
-    {
-        id: 18,
-        text: "En el nivel 'Asistencial', ¿cuál es el enfoque principal?",
-        options: [
-            "Diseño de políticas.",
-            "Ejecución de procesos y soporte operativo.",
-            "Coordinación de áreas."
-        ],
-        correctAnswer: 1,
-        explanation: "El nivel asistencial se enfoca en la ejecución y apoyo operativo.",
-        category: "Niveles"
-    },
-    {
-        id: 19,
-        text: "¿Qué es el FURAG?",
-        options: [
-            "Un fondo de pensiones.",
-            "Formulario Único de Reporte de Avances de la Gestión.",
-            "Un impuesto distrital."
-        ],
-        correctAnswer: 1,
-        explanation: "Es el instrumento para medir el avance de MIPG.",
-        category: "MIPG"
-    },
-    {
-        id: 20,
-        text: "¿Cuál es el principio que obliga a tratar a todos los ciudadanos igual ante la ley?",
-        options: [
-            "Principio de Igualdad.",
-            "Principio de Celeridad.",
-            "Principio de Economía."
-        ],
-        correctAnswer: 0,
-        explanation: "Art. 13 de la Constitución: Derecho a la Igualdad.",
-        category: "Constitución"
-    }
-];
-
 const Simulations: React.FC = () => {
-    const [activeQuiz, setActiveQuiz] = useState<boolean>(false);
-    const [currentQuestion, setCurrentQuestion] = useState<number>(0);
-    const [score, setScore] = useState<number>(0);
-    const [showResult, setShowResult] = useState<boolean>(false);
+    // --- State ---
+    const [userName, setUserName] = useState('');
+    const [isStarted, setIsStarted] = useState(false);
+
+    // Quiz State
+    const [currentQuestion, setCurrentQuestion] = useState(0);
+    const [score, setScore] = useState(0);
     const [selectedOption, setSelectedOption] = useState<number | null>(null);
-    const [isAnswered, setIsAnswered] = useState<boolean>(false);
-    const [bestScore, setBestScore] = useState<number>(0);
+    const [isAnswered, setIsAnswered] = useState(false);
+    const [showResult, setShowResult] = useState(false);
+
+    // Timer State
+    const [seconds, setSeconds] = useState(0);
+    const [isActiveTimer, setIsActiveTimer] = useState(false);
+
+    // Settings & Data
+    const [soundEnabled, setSoundEnabled] = useState(true);
+    const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+
+    const timerRef = useRef<number | null>(null);
+
+    // --- Effects ---
 
     useEffect(() => {
-        // Load best score from local storage
-        const savedScore = localStorage.getItem('mm_best_score');
-        if (savedScore) {
-            setBestScore(parseInt(savedScore, 10));
+        // Load Leaderboard
+        const savedLeaderboard = localStorage.getItem('mm_leaderboard');
+        if (savedLeaderboard) {
+            setLeaderboard(JSON.parse(savedLeaderboard));
         }
     }, []);
 
-    const handleStartQuiz = () => {
-        setActiveQuiz(true);
-        setCurrentQuestion(0);
+    useEffect(() => {
+        // Timer Logic
+        if (isActiveTimer) {
+            timerRef.current = window.setInterval(() => {
+                setSeconds(s => s + 1);
+            }, 1000);
+        } else if (timerRef.current) {
+            clearInterval(timerRef.current);
+        }
+        return () => {
+            if (timerRef.current) clearInterval(timerRef.current);
+        };
+    }, [isActiveTimer]);
+
+    // --- Helpers ---
+
+    const formatTime = (totalSeconds: number) => {
+        const m = Math.floor(totalSeconds / 60);
+        const s = totalSeconds % 60;
+        return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    };
+
+    const playSound = (type: 'success' | 'error') => {
+        if (!soundEnabled) return;
+        if (type === 'success') {
+            AUDIO_SUCCESS.currentTime = 0;
+            AUDIO_SUCCESS.play().catch(e => console.log('Audio play failed', e));
+        } else {
+            AUDIO_ERROR.currentTime = 0;
+            AUDIO_ERROR.play().catch(e => console.log('Audio play failed', e));
+        }
+    };
+
+    // --- Handlers ---
+
+    const handleStartParams = () => {
+        if (!userName.trim()) {
+            alert("Por favor ingresa tu nombre para iniciar.");
+            return;
+        }
+        setIsStarted(true);
+        setIsActiveTimer(true);
+        setSeconds(0);
         setScore(0);
+        setCurrentQuestion(0);
         setShowResult(false);
-        setSelectedOption(null);
         setIsAnswered(false);
+        setSelectedOption(null);
     };
 
     const handleOptionSelect = (index: number) => {
         if (isAnswered) return;
         setSelectedOption(index);
         setIsAnswered(true);
-        if (index === mockQuiz[currentQuestion].correctAnswer) {
+
+        const isCorrect = index === mockQuiz[currentQuestion].correctAnswer;
+        if (isCorrect) {
             setScore(prev => prev + 1);
+            playSound('success');
+        } else {
+            playSound('error');
         }
     };
 
     const handleNextQuestion = () => {
         if (currentQuestion < mockQuiz.length - 1) {
-            setCurrentQuestion(currentQuestion + 1);
+            setCurrentQuestion(prev => prev + 1);
             setSelectedOption(null);
             setIsAnswered(false);
         } else {
@@ -300,74 +124,113 @@ const Simulations: React.FC = () => {
     };
 
     const finishQuiz = () => {
+        setIsActiveTimer(false);
         setShowResult(true);
-        // Update best score if current is higher
-        if (score > bestScore) { // Note: using score state here might be tricky due to closure, but since we updated it via setScore previously, let's trusting React batching or check logic. 
-            // Actually score inside handleNextQuestion won't be updated immediately if called in same render cycle, but finishQuiz is called AFTER the last question. 
-            // Wait, let's fix the logic. The score is incremented in handleOptionSelect.
-            // But we need to check the FINAL score which includes the last question if correct.
-            // Let's rely on an effect or calculation.
-            // Better: check inside render or specific effect.
-        }
+
+        // Save Leaderboard
+        const newEntry: LeaderboardEntry = {
+            name: userName,
+            score: score + (selectedOption === mockQuiz[currentQuestion].correctAnswer ? 1 : 0), // Add last point if correct
+            time: formatTime(seconds),
+            date: new Date().toLocaleDateString()
+        };
+
+        // Note: The 'score' state variable might be one step behind if updated in the same render cycle as finishQuiz call in handleOptionSelect logic (which it isn't here, it is in handleNext).
+        // However, handleNextQuestion is called manually. But wait, if the LAST question is answered correctly, handleOptionSelect increments score. 
+        // Then user clicks "Ver Resultados" (handleNextQuestion) -> finishQuiz. 
+        // So 'score' state IS updated correctly before finishQuiz runs. 
+        // Wait, remove the manual addition in newEntry above if score is already up to date.
+        // Actually, let's verify: handleOptionSelect runs -> setScore(prev+1). Re-render. User sees feedback. User clicks Next. handleNext runs -> finishQuiz. 
+        // Yes, score is up to date.
+
+        // Correct logic:
+        const finalScore = isAnswered && selectedOption === mockQuiz[currentQuestion].correctAnswer
+            ? score // Already incremented? No wait. 
+            // setScore is async. But handleOptionSelect happened BEFORE user clicked Next. So score IS updated.
+            : score;
+
+        // Re-calibrating safely:
+        // Use the score state directly as it was updated when they clicked the option.
+
+        const finalEntry: LeaderboardEntry = { ...newEntry, score };
+
+        const updatedLeaderboard = [...leaderboard, finalEntry]
+            .sort((a, b) => b.score - a.score || a.time.localeCompare(b.time)) // Sort by score DESC, then time ASC
+            .slice(0, 5); // Keep top 5
+
+        setLeaderboard(updatedLeaderboard);
+        localStorage.setItem('mm_leaderboard', JSON.stringify(updatedLeaderboard));
     };
 
-    // Effect to update best score when result is shown
-    useEffect(() => {
-        if (showResult) {
-            const finalScore = score; // Current score state
-            if (finalScore > bestScore) {
-                setBestScore(finalScore);
-                localStorage.setItem('mm_best_score', finalScore.toString());
-            }
-        }
-    }, [showResult, score, bestScore]);
+    const resetQuiz = () => {
+        setIsStarted(false);
+        setUserName('');
+        setIsActiveTimer(false);
+    };
 
-    if (activeQuiz && !showResult) {
+    // --- Render ---
+
+    if (!isStarted) {
         return (
-            <div className="max-w-3xl mx-auto space-y-6 animate-in slide-in-from-right-8 duration-500">
-                <div className="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-200">
-                    <div className="flex justify-between items-center mb-8">
-                        <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Pregunta {currentQuestion + 1} de {mockQuiz.length}</span>
-                        <span className="bg-blue-100 text-blue-700 font-bold px-3 py-1 rounded-full text-xs">{mockQuiz[currentQuestion].category}</span>
+            <div className="max-w-2xl mx-auto space-y-8 animate-in zoom-in-95 duration-500">
+                <div className="bg-white dark:bg-slate-800 p-10 rounded-[2.5rem] shadow-sm border border-slate-200 dark:border-slate-700 text-center relative overflow-hidden">
+                    <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-500 to-purple-600"></div>
+
+                    <div className="w-24 h-24 bg-blue-50 dark:bg-slate-700 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <Gamepad2 className="w-10 h-10 text-blue-600 dark:text-blue-400" />
                     </div>
 
-                    <h3 className="text-xl font-bold text-slate-800 mb-6 leading-relaxed">
-                        {mockQuiz[currentQuestion].text}
-                    </h3>
+                    <h2 className="text-3xl font-black text-slate-800 dark:text-white mb-4">Juicio Situacional</h2>
+                    <p className="text-slate-500 dark:text-slate-400 mb-8 max-w-md mx-auto">
+                        Entrenamiento de alta intensidad. Analiza casos reales, toma decisiones bajo presión y mide tu velocidad.
+                    </p>
 
-                    <div className="space-y-3">
-                        {mockQuiz[currentQuestion].options.map((option, index) => (
-                            <button
-                                key={index}
-                                onClick={() => handleOptionSelect(index)}
-                                disabled={isAnswered}
-                                className={`w-full text-left p-4 rounded-xl border-2 transition-all duration-200 flex items-center justify-between
-                  ${!isAnswered && 'hover:border-blue-300 hover:bg-blue-50 border-slate-100'}
-                  ${isAnswered && index === mockQuiz[currentQuestion].correctAnswer ? 'border-emerald-500 bg-emerald-50 text-emerald-900' : ''}
-                  ${isAnswered && index === selectedOption && index !== mockQuiz[currentQuestion].correctAnswer ? 'border-red-500 bg-red-50 text-red-900' : ''}
-                  ${isAnswered && index !== selectedOption && index !== mockQuiz[currentQuestion].correctAnswer ? 'border-slate-100 opacity-50' : ''}
-                `}
-                            >
-                                <span>{option}</span>
-                                {isAnswered && index === mockQuiz[currentQuestion].correctAnswer && <CheckCircle className="w-5 h-5 text-emerald-600" />}
-                                {isAnswered && index === selectedOption && index !== mockQuiz[currentQuestion].correctAnswer && <XCircle className="w-5 h-5 text-red-600" />}
-                            </button>
-                        ))}
-                    </div>
-
-                    {isAnswered && (
-                        <div className="mt-8 pt-6 border-t border-slate-100 animate-in fade-in slide-in-from-bottom-2">
-                            <div className="bg-slate-50 p-4 rounded-xl mb-6">
-                                <p className="font-bold text-slate-700 text-sm mb-1">Explicación:</p>
-                                <p className="text-sm text-slate-600">{mockQuiz[currentQuestion].explanation}</p>
+                    <div className="max-w-xs mx-auto space-y-4">
+                        <div className="text-left">
+                            <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Nombre del Aspirante</label>
+                            <div className="relative">
+                                <User className="absolute left-4 top-3.5 w-5 h-5 text-slate-400" />
+                                <input
+                                    type="text"
+                                    value={userName}
+                                    onChange={(e) => setUserName(e.target.value)}
+                                    placeholder="Ingresa tu nombre..."
+                                    className="w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-bold text-slate-700 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                                />
                             </div>
-                            <button
-                                onClick={handleNextQuestion}
-                                className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200 flex items-center justify-center gap-2"
-                            >
-                                {currentQuestion < mockQuiz.length - 1 ? 'Siguiente Pregunta' : 'Ver Resultados'}
-                                <ArrowRight className="w-5 h-5" />
-                            </button>
+                        </div>
+
+                        <button
+                            onClick={handleStartParams}
+                            className="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white rounded-xl font-bold shadow-lg shadow-blue-200 dark:shadow-none flex items-center justify-center gap-3 transition-transform active:scale-95"
+                        >
+                            <PlayCircle className="w-5 h-5" />
+                            Iniciar Prueba
+                        </button>
+                    </div>
+
+                    {/* Mini Leaderboard Preview */}
+                    {leaderboard.length > 0 && (
+                        <div className="mt-10 pt-8 border-t border-slate-100 dark:border-slate-700 text-left">
+                            <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                <Trophy className="w-4 h-4 text-yellow-500" /> Mejores Puntajes
+                            </h4>
+                            <div className="space-y-2">
+                                {leaderboard.slice(0, 3).map((entry, i) => (
+                                    <div key={i} className="flex justify-between items-center text-sm">
+                                        <div className="flex items-center gap-2">
+                                            <span className={`font-bold w-5 h-5 flex items-center justify-center rounded-full text-[10px] ${i === 0 ? 'bg-yellow-100 text-yellow-700' : 'bg-slate-100 text-slate-500'}`}>
+                                                {i + 1}
+                                            </span>
+                                            <span className="font-medium text-slate-700 dark:text-slate-300">{entry.name}</span>
+                                        </div>
+                                        <div className="flex gap-4">
+                                            <span className="font-bold text-blue-600">{entry.score} pts</span>
+                                            <span className="text-slate-400 font-mono text-xs">{entry.time}</span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     )}
                 </div>
@@ -376,91 +239,178 @@ const Simulations: React.FC = () => {
     }
 
     if (showResult) {
+        const percentage = Math.round((score / mockQuiz.length) * 100);
         return (
-            <div className="max-w-xl mx-auto text-center space-y-8 animate-in zoom-in-95 duration-500">
-                <div className="bg-white p-10 rounded-[2.5rem] shadow-sm border border-slate-200 relative overflow-hidden">
-                    {score >= 12 && (
-                        <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-green-400 to-emerald-500"></div>
-                    )}
-                    <div className="w-24 h-24 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                        <Trophy className={`w-12 h-12 ${score >= 12 ? 'text-yellow-500' : 'text-blue-600'}`} />
-                    </div>
-                    <h2 className="text-3xl font-black text-slate-800 mb-2">
-                        {score >= 12 ? '¡Excelente Trabajo!' : 'Simulacro Finalizado'}
-                    </h2>
-                    <p className="text-slate-500 mb-8">
-                        {score >= 12 ? 'Has demostrado un gran dominio de los temas.' : 'Continúa repasando los temas fundamentales.'}
-                    </p>
+            <div className="max-w-xl mx-auto space-y-6 animate-in zoom-in-95 duration-500">
+                <div className="bg-white dark:bg-slate-800 p-8 rounded-[2rem] shadow-xl border border-slate-200 dark:border-slate-700 text-center relative overflow-hidden">
+                    {/* Confetti Effect bg would go here */}
+                    <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-green-400 to-emerald-500"></div>
 
-                    <div className="text-6xl font-black text-blue-600 mb-2">{score} / {mockQuiz.length}</div>
-                    <div className="flex justify-center gap-4 text-sm font-bold text-slate-400 uppercase tracking-widest mb-8">
-                        <span>Aciertos</span>
-                        <span>•</span>
-                        <span>{Math.round((score / mockQuiz.length) * 100)}% Efectividad</span>
+                    <div className="w-24 h-24 bg-yellow-50 dark:bg-yellow-900/20 rounded-full flex items-center justify-center mx-auto mb-6 animate-bounce">
+                        <Trophy className="w-12 h-12 text-yellow-500" />
+                    </div>
+
+                    <h2 className="text-4xl font-black text-slate-800 dark:text-white mb-2">{score} / {mockQuiz.length}</h2>
+                    <p className="text-slate-500 dark:text-slate-400 font-medium mb-1">Puntaje Final</p>
+                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-slate-100 dark:bg-slate-700 rounded-full text-xs font-mono text-slate-500 dark:text-slate-300 mb-8">
+                        <Clock className="w-3 h-3" /> Tiempo: {formatTime(seconds)}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 mb-8">
+                        <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-700">
+                            <p className="text-xs text-slate-400 uppercase font-black tracking-widest mb-1">Efectividad</p>
+                            <p className={`text-2xl font-black ${percentage >= 80 ? 'text-emerald-500' : 'text-blue-500'}`}>{percentage}%</p>
+                        </div>
+                        <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-700">
+                            <p className="text-xs text-slate-400 uppercase font-black tracking-widest mb-1">Rendimiento</p>
+                            <p className="text-lg font-bold text-slate-700 dark:text-slate-300">{percentage >= 80 ? 'Sobresaliente' : percentage >= 60 ? 'Satisfactorio' : 'Por mejorar'}</p>
+                        </div>
                     </div>
 
                     <div className="flex gap-4">
                         <button
-                            onClick={() => setActiveQuiz(false)}
-                            className="flex-1 py-3 rounded-xl font-bold text-slate-600 hover:bg-slate-100 transition-colors"
+                            onClick={resetQuiz}
+                            className="flex-1 py-3 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl font-bold hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
                         >
-                            Volver al Menú
+                            Menú Principal
                         </button>
-                        <button
-                            onClick={handleStartQuiz}
-                            className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200 flex items-center justify-center gap-2"
-                        >
-                            <RefreshCw className="w-4 h-4" /> Intentar de nuevo
-                        </button>
+                    </div>
+                </div>
+
+                {/* Full Leaderboard */}
+                <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-200 dark:border-slate-700">
+                    <h3 className="font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
+                        <ListOrdered className="w-5 h-5 text-blue-500" /> Ranking Global
+                    </h3>
+                    <div className="space-y-3">
+                        {leaderboard.map((entry, i) => (
+                            <div key={i} className={`flex items-center justify-between p-3 rounded-xl ${entry.name === userName && entry.time === formatTime(seconds) ? 'bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-900/30' : 'bg-slate-50 dark:bg-slate-900'}`}>
+                                <div className="flex items-center gap-3">
+                                    <span className={`w-6 h-6 flex items-center justify-center rounded-full text-xs font-black ${i === 0 ? 'bg-yellow-400 text-yellow-900' : 'bg-slate-200 dark:bg-slate-700 text-slate-500'}`}>
+                                        {i + 1}
+                                    </span>
+                                    <span className="font-bold text-slate-700 dark:text-slate-200 text-sm">{entry.name}</span>
+                                </div>
+                                <div className="text-right">
+                                    <p className="font-black text-blue-600 text-sm">{entry.score} pts</p>
+                                    <p className="font-mono text-[10px] text-slate-400">{entry.time}</p>
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 </div>
             </div>
         );
     }
 
+    // Active Quiz View
     return (
-        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="p-10 text-center bg-white rounded-[2.5rem] border border-slate-200 shadow-sm relative overflow-hidden">
-                {/* Decorative elements */}
-                <div className="absolute top-10 left-10 w-20 h-20 bg-blue-50 rounded-full blur-2xl opacity-60"></div>
-                <div className="absolute bottom-10 right-10 w-32 h-32 bg-purple-50 rounded-full blur-3xl opacity-60"></div>
-
-                <Gamepad2 className="w-20 h-20 text-slate-200 mx-auto mb-6 relative z-10" />
-                <h3 className="text-3xl font-black text-slate-800 mb-4 relative z-10">Laboratorio de Práctica</h3>
-                <p className="text-slate-500 max-w-lg mx-auto mb-10 leading-relaxed relative z-10">
-                    Entrenamiento intensivo con preguntas tipo juicio situacional.
-                </p>
-
-                {/* Score Board */}
-                <div className="max-w-xs mx-auto bg-slate-50 rounded-2xl p-4 mb-8 flex items-center justify-center gap-3 border border-slate-100">
-                    <History className="w-5 h-5 text-blue-500" />
-                    <div className="text-left">
-                        <p className="text-[10px] uppercase font-black text-slate-400">Tu Mejor Puntaje</p>
-                        <p className="text-lg font-bold text-slate-700">{bestScore} / {mockQuiz.length} Aciertos</p>
+        <div className="max-w-4xl mx-auto space-y-6 animate-in slide-in-from-right-8 duration-500">
+            {/* Header Bar */}
+            <div className="flex items-center justify-between bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 sticky top-24 z-20">
+                <div className="flex items-center gap-4">
+                    <div className="bg-blue-100 dark:bg-blue-900 p-2 rounded-lg">
+                        <User className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <div>
+                        <p className="text-[10px] uppercase font-black text-slate-400">Aspirante</p>
+                        <p className="font-bold text-slate-800 dark:text-white leading-none">{userName}</p>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl mx-auto relative z-10">
-                    <div className="p-6 border-2 border-blue-600 bg-blue-50 rounded-2xl text-left cursor-pointer hover:scale-105 transition-transform duration-300 relative overflow-hidden group shadow-lg shadow-blue-100" onClick={handleStartQuiz}>
-                        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                            <Gamepad2 className="w-24 h-24 text-blue-900" />
+                <div className="flex items-center gap-6">
+                    <div className="text-center hidden md:block">
+                        <p className="text-[10px] uppercase font-black text-slate-400">Tiempo</p>
+                        <p className="font-mono font-bold text-slate-800 dark:text-white text-lg leading-none tabular-nums">{formatTime(seconds)}</p>
+                    </div>
+                    <div className="text-center">
+                        <p className="text-[10px] uppercase font-black text-slate-400">Puntaje</p>
+                        <p className="font-bold text-blue-600 text-lg leading-none">{score}</p>
+                    </div>
+                    <button
+                        onClick={() => setSoundEnabled(!soundEnabled)}
+                        className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition"
+                    >
+                        {soundEnabled ? <Volume2 className="w-5 h-5 text-slate-400" /> : <VolumeX className="w-5 h-5 text-slate-300" />}
+                    </button>
+                </div>
+            </div>
+
+            <div className="bg-white dark:bg-slate-800 p-8 md:p-12 rounded-[2.5rem] shadow-sm border border-slate-200 dark:border-slate-700 relative">
+                <div className="absolute top-0 right-0 p-8 hidden md:block opacity-5">
+                    <Gamepad2 className="w-64 h-64" />
+                </div>
+
+                {/* Progress Bar */}
+                <div className="w-full bg-slate-100 dark:bg-slate-700 h-2 rounded-full mb-8 overflow-hidden">
+                    <div
+                        className="bg-blue-600 h-full transition-all duration-500 ease-out"
+                        style={{ width: `${((currentQuestion + 1) / mockQuiz.length) * 100}%` }}
+                    ></div>
+                </div>
+
+                <div className="flex justify-between items-center mb-6 relative z-10">
+                    <span className="font-bold text-slate-400 text-sm">Caso {currentQuestion + 1} de {mockQuiz.length}</span>
+                    <span className="bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 font-bold px-4 py-1.5 rounded-full text-xs uppercase tracking-wider">
+                        {mockQuiz[currentQuestion].category}
+                    </span>
+                </div>
+
+                {/* Case Context Box */}
+                <div className="bg-slate-50 dark:bg-slate-900 p-6 rounded-2xl border border-slate-100 dark:border-slate-700 mb-8 relative z-10">
+                    <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Contexto del Caso</h4>
+                    <p className="text-slate-700 dark:text-slate-300 text-lg leading-relaxed italic">
+                        "{mockQuiz[currentQuestion].caseContext}"
+                    </p>
+                </div>
+
+                <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-8 leading-snug relative z-10">
+                    {mockQuiz[currentQuestion].text}
+                </h3>
+
+                <div className="space-y-4 relative z-10">
+                    {mockQuiz[currentQuestion].options.map((option, index) => (
+                        <button
+                            key={index}
+                            onClick={() => handleOptionSelect(index)}
+                            disabled={isAnswered}
+                            className={`w-full text-left p-5 rounded-2xl border-2 transition-all duration-200 flex items-center justify-between group
+                                ${!isAnswered
+                                    ? 'border-slate-100 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/10'
+                                    : ''}
+                                ${isAnswered && index === mockQuiz[currentQuestion].correctAnswer
+                                    ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-900 dark:text-emerald-300'
+                                    : ''}
+                                ${isAnswered && index === selectedOption && index !== mockQuiz[currentQuestion].correctAnswer
+                                    ? 'border-red-500 bg-red-50 dark:bg-red-900/20 text-red-900 dark:text-red-300'
+                                    : ''}
+                                ${isAnswered && index !== selectedOption && index !== mockQuiz[currentQuestion].correctAnswer
+                                    ? 'border-slate-100 dark:border-slate-800 opacity-40'
+                                    : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200'}
+                            `}
+                        >
+                            <span className="text-base font-medium">{option}</span>
+                            {isAnswered && index === mockQuiz[currentQuestion].correctAnswer && <CheckCircle className="w-6 h-6 text-emerald-500" />}
+                            {isAnswered && index === selectedOption && index !== mockQuiz[currentQuestion].correctAnswer && <XCircle className="w-6 h-6 text-red-500" />}
+                        </button>
+                    ))}
+                </div>
+
+                {isAnswered && (
+                    <div className="mt-8 pt-6 border-t border-slate-100 dark:border-slate-700 animate-in fade-in slide-in-from-bottom-2 relative z-10">
+                        <div className="bg-emerald-50 dark:bg-emerald-900/10 p-5 rounded-2xl mb-6 border border-emerald-100 dark:border-emerald-900/20">
+                            <p className="font-black text-emerald-800 dark:text-emerald-400 text-xs uppercase tracking-widest mb-2">Retroalimentación</p>
+                            <p className="text-emerald-900 dark:text-emerald-200">{mockQuiz[currentQuestion].explanation}</p>
                         </div>
-                        <h4 className="font-bold text-blue-900 text-lg mb-1">Simulacro General</h4>
-                        <p className="text-blue-700 text-xs mb-4">{mockQuiz.length} Preguntas • Aleatorio</p>
-                        <button className="bg-blue-600 text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 group-hover:bg-blue-700 transition-colors">
-                            <PlayCircle className="w-4 h-4" /> Iniciar Ahora
+                        <button
+                            onClick={handleNextQuestion}
+                            className="w-full bg-blue-600 dark:bg-blue-600 text-white py-4 rounded-xl font-bold hover:bg-blue-700 px-8 transition-all shadow-lg shadow-blue-200 dark:shadow-none flex items-center justify-center gap-3"
+                        >
+                            {currentQuestion < mockQuiz.length - 1 ? 'Siguiente Caso' : 'Finalizar Prueba'}
+                            <ArrowRight className="w-5 h-5" />
                         </button>
                     </div>
-
-                    <div className="p-6 border border-slate-200 bg-white rounded-2xl text-left relative overflow-hidden opacity-60 grayscale cursor-not-allowed">
-                        <div className="absolute top-2 right-2 bg-slate-100 px-2 py-1 rounded text-[10px] font-black uppercase text-slate-400">Próximamente</div>
-                        <h4 className="font-bold text-slate-800 text-lg mb-1">Nivel Profesional</h4>
-                        <p className="text-slate-500 text-xs mb-4">Específico • Casos Gerencia</p>
-                        <button className="bg-slate-100 text-slate-400 px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2">
-                            <PlayCircle className="w-4 h-4" /> Bloqueado
-                        </button>
-                    </div>
-                </div>
+                )}
             </div>
         </div>
     );
