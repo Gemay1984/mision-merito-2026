@@ -11,25 +11,18 @@ if not exist .git (
 )
 
 git add .
-git commit -m "Initial commit: Mision Merito 2026 App"
+git commit -m "Update: Fix deployment workflow"
 
 echo.
-echo ========================================================
-echo PARA CONTINUAR, NECESITAS CREAR UN REPOSITORIO EN GITHUB
-echo ========================================================
-echo 1. Ve a https://github.com/new
-echo 2. Crea un repositorio llamado: mision-merito-2026
-echo 3. Copia el comando que dice:
-echo    "git remote add origin https://github.com/TU_USUARIO/mision-merito-2026.git"
-echo.
-set /p REMOTE_URL="Pega aqui el comando 'git remote add origin...' y presiona ENTER: "
+echo Verificando conexion remota...
+git remote remove origin 2>nul
+git remote add origin https://github.com/Gemay1984/mision-merito-2026.git
 
-%REMOTE_URL%
+echo Subiendo cambios a GitHub (Repo: Gemay1984/mision-merito-2026)...
 git branch -M main
 git push -u origin main
 
 echo.
-echo Si todo salio bien, tu proyecto esta en GitHub.
-echo La pagina estara visible en unos minutos en:
-echo https://TU_USUARIO.github.io/mision-merito-2026/
+echo [LISTO] Los cambios se han subido.
+echo Ahora ve a GitHub -> Settings -> Pages y asegúrate de que Source sea 'GitHub Actions'.
 pause
